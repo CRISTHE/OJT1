@@ -1,0 +1,498 @@
+#////////////////////////////////////////////////////////////////////////////////////////
+#1 Calcular el acumulado de petróleo de todo el campo al día de hoy
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos.
+sum = pd.read_sql('SELECT SUM(OIL) AS ACUMULADO_TOTAL FROM S_OFM_TOTAL_MTH', connection)
+print('1.- El acumulado de petróleo [BBL] de todo el campo al día de hoy es:')
+print(sum)
+
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#2 Calcular el acumulado de petróleo desde Enero 2015 hasta la fecha más reciente de la base de datos
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos.
+df = pd.read_sql("SELECT * FROM S_OFM_TOTAL_MTH", connection)
+#Se etablece DATETIME como index a través de loc (label-based) para la suma de acumulados.
+df.set_index("DATETIME", inplace=True)
+print('2.- El acumulado de petróleo [BBL] desde Enero 2015 hasta la fecha más reciente es:')
+print(df.loc["2015-01":,"OIL"].sum())
+
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#3 Obtener una tabla (o dataframe) con el acumulado de petróleo por cada campo
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos a través de INNER JOIN.
+acumulado_por_campo = pd.read_sql('SELECT FIELD, OIL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m  JOIN S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME', connection)
+
+#Resultado en dataframe
+print('3. Acumulado de petróleo por cada campo')
+df=pd.DataFrame(acumulado_por_campo)
+
+#Cálculo del acumulado de petróleo [BBL] por cada campo.
+agrupado=df.groupby("FIELD")[["OIL"]].sum()
+print(agrupado)
+
+#Selección de campo
+#print(agrupado.loc['BOA'])
+
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#4 Obtener una tabla con el acumulado de petróleo por campo y por arena
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos a través de INNER JOIN.
+acumulado_por_campo_arena = pd.read_sql('SELECT FIELD,SAND,OIL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME', connection)
+print('4. Acumulado de petróleo [BBL] por cada campo y arena')
+
+#Resultado en dataframe para agrupación por campo y por arena.
+df=pd.DataFrame(acumulado_por_campo_arena)
+agrupado2=df.groupby(["FIELD","SAND"])[["OIL"]].sum()
+print(agrupado2)
+
+#Selección de campo de interés
+#print(agrupado2.loc['ANACONDA'])
+
+#%%
+
+#//////////////////////////////////////////////////////////////////////////////////////
+#5 Hacer un gráfico de barras por campo, con el acumulado de petróleo de las diferentes arenas
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos a través de INNER JOIN.
+acumulado_por_campo_arena = pd.read_sql("SELECT FIELD,SAND,OIL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME ", connection)
+
+#Resultado en dataframe para graficar posteriormente.
+df2=pd.DataFrame(acumulado_por_campo_arena)
+agrupado2=df2.groupby(["FIELD","SAND"])[["OIL"]].sum().unstack().plot(kind='barh', title='ACUMULADO DE PETROLEO DE LAS DIFERENTES ARENAS').legend(loc='upper center', bbox_to_anchor=(1.20, 1.05), shadow=True, ncol=1)
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#6 Obtener una tabla con los pozos con mayor acumulado de petróleo (ordenado de mayor a menor)
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+acumulado_pozos = pd.read_sql('SELECT COMPLETION_NAME AS POZO,SUM (OIL) AS ACUMULADO FROM S_OFM_TOTAL_MTH GROUP BY (COMPLETION_NAME) ORDER BY ACUMULADO DESC', connection)
+print('6. Pozos con mayor acumulado de petróleo [BBL] ')
+print(acumulado_pozos)
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#7 Hacer un gráfico de barras con los 10 pozos con mayor acumulado de petróleo
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+sum10 = pd.read_sql('SELECT top 10 COMPLETION_NAME AS POZO,SUM (OIL) AS ACUM FROM S_OFM_TOTAL_MTH GROUP BY (COMPLETION_NAME) ORDER BY ACUM DESC', connection)
+#print(sum10)
+#for x in sum10:
+ #   print(x)
+import matplotlib.pyplot as plt
+eje_x=sum10['POZO']
+eje_Y=sum10['ACUM']
+plt.bar(eje_x,eje_Y)
+plt.ylabel('ACUMULADO DE PETROLEO [BBL]')
+plt.xlabel('POZOS')
+plt.xticks( rotation=90)
+plt.title('10 POZOS CON MAYOR ACUMULADO')
+plt.show()
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#8 Obtener una tabla con los pozos con mayor producción actual de petróleo (a la última fecha en la base de datos)
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+mayor_produccion = pd.read_sql('SELECT top 10 COMPLETION_NAME AS POZO, SUM(OIL) AS PROD FROM S_OFM_TOTAL_MTH GROUP BY (COMPLETION_NAME) ORDER BY PROD DESC', connection)
+print('8. Pozos con mayor producción actual de petróleo' )
+print(mayor_produccion)
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#9 Graficar la producción de petróleo, agua y líquido de todo el campo
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+import matplotlib.pyplot as plt
+prod_campo = pd.read_sql('SELECT DATETIME AS FECHA,SUM(OIL) AS ACUMO, SUM(WAT) AS ACUMW FROM S_OFM_TOTAL_MTH GROUP BY DATETIME ORDER BY DATETIME', connection)
+prod_campo["ACUML"]=prod_campo["ACUMO"]+prod_campo["ACUMW"]
+#Producción de petróleo actual
+prod_oil_current=prod_campo.iloc[-1][1]
+#Acumulado de petróleo a la fecha
+acum_table = pd.read_sql('SELECT SUM(OIL) AS ACUMULADO_TOTAL FROM S_OFM_TOTAL_MTH', connection)
+val=acum_table.iloc[0][0]
+redondeo=val.round(2)
+#Gráfico
+eje_x=prod_campo["FECHA"]
+eje_Y1=prod_campo['ACUMO']
+eje_Y2=prod_campo['ACUMW']
+eje_Y3=prod_campo['ACUML']
+plt.plot(eje_x,eje_Y1, color='black')
+plt.plot(eje_x,eje_Y2, color='blue')
+plt.plot(eje_x,eje_Y3, color='green')
+plt.ylabel('PRODUCCION [BBL]')
+plt.xlabel('FECHA')
+plt.xticks( rotation=45)
+plt.title('GRAFICO DE PRODUCCION DE TODO EL CAMPO')
+
+#Tabla dentro del gráfico
+valores = [[prod_oil_current], [redondeo]]
+etiquetas_fil = ('Current Oil Production','Accumulated Oil Production')
+etiquetas_col = ("BBL")
+plt.table(cellText=valores, rowLabels=etiquetas_fil, colLabels = etiquetas_col,colWidths = [0.25], loc='upper right')
+plt.legend(["OIL","WATER","LIQUID"])
+plt.show()
+
+
+#%%
+
+#////////////////////////////////////////////////////////////////////////////////////////
+#10 Realizar el mismo gráfico anterior, pero esta vez por cada uno de los campos
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos a través de INNER JOIN.
+import matplotlib.pyplot as plt
+print("Ingrese el nombre de el campo:")
+nombre=str(input())
+nombre="'"+nombre+"'"
+prod_campo = pd.read_sql('SELECT DATETIME AS FECHA,SUM(OIL) AS ACUMO, SUM(WAT) AS ACUMW FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME WHERE FIELD = '+nombre+' GROUP BY DATETIME ORDER BY DATETIME', connection)
+prod_campo["ACUML"]=prod_campo["ACUMO"]+prod_campo["ACUMW"]
+prod_oil_current=prod_campo.iloc[-1][1]
+acum_table = pd.read_sql('SELECT SUM(OIL) AS ACUMULADO_TOTAL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME WHERE FIELD = '+nombre+' GROUP BY DATETIME ORDER BY DATETIME', connection)
+val=acum_table.iloc[0][0]
+redondeo=val.round(2)
+
+#Gráfico
+eje_x=prod_campo["FECHA"]
+eje_Y1=prod_campo['ACUMO']
+eje_Y2=prod_campo['ACUMW']
+eje_Y3=prod_campo['ACUML']
+plt.plot(eje_x,eje_Y1, color='black')
+plt.plot(eje_x,eje_Y2, color='blue')
+plt.plot(eje_x,eje_Y3, color='green')
+plt.ylabel('PRODUCCION [BBL]')
+plt.xlabel('FECHA')
+plt.title('GRAFICO DE PRODUCCION DEL CAMPO '+nombre)
+
+#Tabla dentro del gráfico
+valores = [[prod_oil_current], [redondeo]]
+etiquetas_fil = ('Current Oil Production','Accumulated Oil Production')
+etiquetas_col = ('BBL')
+plt.table(cellText=valores, rowLabels=etiquetas_fil, colLabels = etiquetas_col,colWidths = [0.25], loc='upper right')
+plt.legend(["OIL","WATER","LIQUID"])
+plt.show()
+
+
+
+
+#%%
+
+#/////////////////////////////////////////////////////////////////////////////////
+#11 Realizar un gráfico de producción por cada pozo (una función que acepte el nombre de la completación del pozo (ITEM_NAME)
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+
+#Grafico Superior:
+#Tasa calendario de oil, water y líquido
+print("Ingrese el item name:")
+nombre=str(input())
+nombre="'"+nombre+"'"
+prod_campo = pd.read_sql('SELECT DATETIME AS FECHA,SUM(OIL) AS TASA_OIL, SUM(WAT) AS TASA_WAT FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME WHERE ITEM_NAME = '+nombre+' GROUP BY DATETIME ORDER BY DATETIME', connection)
+prod_campo["TASA_OIL"]=(prod_campo["TASA_OIL"])/30
+prod_campo["TASA_WAT"]=(prod_campo["TASA_WAT"])/30
+prod_campo["TASA_LIQ"]=(prod_campo["TASA_OIL"]+prod_campo["TASA_WAT"])
+
+#Acumulado de petróleo actual del pozo
+prod_campo_acumo = pd.read_sql('SELECT SUM(OIL) AS ACUMO FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME WHERE ITEM_NAME = '+nombre+' ', connection)
+print('El acumulado de petróleo [BBL] actual del pozo es:' )
+print(prod_campo_acumo)
+
+
+#Tasa de oil, water y líquido proveniente del well test (data esporádica)
+prod_campo2 = pd.read_sql('SELECT START_DATETIME AS FECHA,LIQ_VOL, OIL_VOL,WATER_VOL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_WELL_TEST AS t ON m.ITEM_NAME = t.ITEM_NAME WHERE m.ITEM_NAME = '+nombre+' ', connection)
+
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt1
+import matplotlib.pyplot as plt2
+import matplotlib.pyplot as plt3
+import matplotlib.pyplot as plt2
+import matplotlib.pyplot as plt4
+import matplotlib.pyplot as plt5
+import matplotlib.pyplot as plt6
+import matplotlib.pyplot as plt7
+fig,(plt1)=plt4.subplots()
+
+fig2,(plt,plt5)=plt7.subplots(2)
+
+#lineas
+eje_x=prod_campo["FECHA"]
+eje_Y1=prod_campo['TASA_OIL']
+eje_Y2=prod_campo['TASA_WAT']
+eje_Y3=prod_campo['TASA_LIQ']
+eje_x2=prod_campo2["FECHA"]
+eje_Y4=prod_campo2['OIL_VOL']
+eje_Y5=prod_campo2['WATER_VOL']
+eje_Y6=prod_campo2['LIQ_VOL']
+plt.plot(eje_x,eje_Y1, color='black')
+plt.plot(eje_x,eje_Y2, color='blue')
+plt.plot(eje_x,eje_Y3, color='green')
+#Puntos
+plt.scatter(eje_x2,eje_Y4, color='black',s=5)
+plt.scatter(eje_x2,eje_Y5, color='blue',s=5)
+plt.scatter(eje_x2,eje_Y6, color='green',s=5)
+#plt.xticks( rotation=45)
+plt.legend(["OIL","WATER","LIQUID"])
+#plt.show()
+
+
+#Grafico inferior
+prod_campo3 = pd.read_sql('SELECT START_DATETIME AS FECHA, PRESS_INTAKE AS INTAKE, SALINITY AS SAL, API_RETURN AS API  FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_WELL_TEST AS t ON m.ITEM_NAME = t.ITEM_NAME WHERE m.ITEM_NAME = '+nombre, connection)
+print(prod_campo3)
+
+#lineas
+eje_x3=prod_campo3["FECHA"]
+eje_Y12=prod_campo3["INTAKE"]
+eje_Y122=prod_campo3["SAL"]
+plt3=plt1.twinx()
+plt1.plot(eje_x3,eje_Y12, color='red')
+plt3.plot(eje_x3,eje_Y122, color='pink')
+plt1.set_ylabel('INTAKE',color='red' )
+
+plt3.set_ylabel('SALINIDAD ',color='pink')
+
+#plt1.xticks( rotation=45)
+#plt1.set_xticks(rotation=45)
+
+#plt2.show()
+plt5=plt4
+eje_x32=prod_campo3["FECHA"]
+eje_Y32=prod_campo3['API']
+plt2.plot(eje_x32,eje_Y32, color='skyblue')
+#plt.legend(["SALINITY","API"])
+#plt2.xticks( rotation=45)
+#plt.show()
+#plt4=plt2
+
+
+#plt1.ylabel('PRODUCCION ')
+#plt1.xlabel('FECHA')
+#plt1.title('GRAFICO INFERIOR DE PRODUCCION DEL POZO '+nombre)
+#plt1.show()
+
+#fig.suptitle('Graficos')
+
+fig2.show()
+
+#ACAC-166TI
+
+#%%
+
+#//////////////////////////////////////////////////////////////////////////////////////
+#12 Realizar un histograma con la porosidad efectiva (utilizando el promedio del espesor (RES) - reservorio)
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+zonas_phi = pd.read_sql("SELECT ZONES, FLAG,AVG_PHIE FROM S_OFM_PETROFISICA WHERE FLAG='RES'", connection)
+print(zonas_phi)
+zonas_phi["AVG_PHIE"].hist(color='blue')
+import matplotlib.pyplot as plt
+plt.xlabel('POROSIDAD EFECTIVA')
+plt.ylabel('FRECUENCIA')
+plt.title('HISTOGRAMA DE POROSIDAD EFECTIVA')
+plt.show()
+
+#%%
+
+#13 Realizar un histograma con la permeabilidad (utilizando el promedio del espesor (RES) - reservorio)
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+zonas_k = pd.read_sql("SELECT ZONES, FLAG, GEOM_AVG_KCOAT FROM S_OFM_PETROFISICA WHERE FLAG='RES'", connection)
+print(zonas_k)
+
+#GRAFICO
+zonas_k["GEOM_AVG_KCOAT"].hist(color='blue')
+import matplotlib.pyplot as plt
+plt.xlabel('PERMEABILIDAD [md]')
+plt.ylabel('FRECUENCIA')
+plt.title('HISTOGRAMA DE PERMEABILIDAD')
+plt.show()
+
+#%%
+
+#14 Hacer un scatter-plot entre la porosidad y permeabilidad, usando el espesor RES
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+import seaborn as sns
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+#Selección de columnas de interés desde la base de datos con las condiciones dadas.
+zonas_phi_k = pd.read_sql("SELECT FIELD,FLAG,AVG_PHIE,GEOM_AVG_KCOAT  FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m  JOIN S_OFM_PETROFISICA  AS p  ON p.OFM_WELLBORE = m.OFM_WELLBORE WHERE FLAG='RES'" , connection)
+#Gráfico seaborn
+eje_x=zonas_phi_k["AVG_PHIE"]
+eje_y=zonas_phi_k['GEOM_AVG_KCOAT']
+sns.scatterplot(eje_x,eje_y,hue=zonas_phi_k["FIELD"]).legend(loc='upper center', bbox_to_anchor=(1.20, 1.05), shadow=True, ncol=1)
+
+
+
+#%%
+#/////////////////////////////////////////////////////////////////////////////////////////
+#15 Crear una función para hacer DCA mediante Arps.
+
+#Conexión a la base de datos.
+from sqlalchemy import create_engine, MetaData, Table, select, inspect
+import pandas as pd
+import numpy as np
+import seaborn as sns
+avocet = create_engine('mssql+pymssql://ofmshaya:ofmshaya2016@EC0038APP05/AVOCET_OFM')
+connection=avocet.raw_connection()
+
+def declinacion (Di,n):
+    prod_campo = pd.read_sql('SELECT DATETIME AS FECHA,SUM(OIL) AS TASA_OIL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME  GROUP BY DATETIME ORDER BY DATETIME', connection)
+    prod_campo["TASA_OIL"]=(prod_campo["TASA_OIL"])/30
+    #print(prod_campo)
+    q_initial = prod_campo.iloc[0][1]
+    if n==0:
+        D=Di
+        return D
+    elif n == 1:
+        D = Di*(prod_campo["TASA_OIL"].iloc[1:]/q_initial)
+        return D
+    elif n > 0 or n < 1:
+        D = Di*(prod_campo["TASA_OIL"].iloc[1:]/q_initial)**n
+        return D
+
+#valor=declinacion (0.02,1)
+#print(valor)
+
+def instantaneos (Di,n,t):
+    prod_campo = pd.read_sql('SELECT DATETIME AS FECHA,SUM(OIL) AS TASA_OIL FROM S_AVOCET_OFM_HEADER_PAM_SHAYA AS m JOIN  S_OFM_TOTAL_MTH AS p ON m.ITEM_NAME = p.COMPLETION_NAME  GROUP BY DATETIME ORDER BY DATETIME', connection)
+    prod_campo["TASA_OIL"]=(prod_campo["TASA_OIL"])/30
+    prod_campo['INDEX'] = prod_campo.index
+    #print(prod_campo)
+    #caudales=prod_campo["TASA_OIL"].iloc[1:]
+    #print(caudales)
+
+    q_initial = prod_campo.iloc[0][1]
+    if n==0:
+        qinst=q_initial*np.exp(-Di*prod_campo["INDEX"].iloc[:t])
+        return qinst
+    elif n == 1:
+        qinst=q_initial/(1+Di*prod_campo["INDEX"].iloc[:t])
+        return qinst
+    elif n > 0 or n < 1:
+        qinst=q_initial/(1+n*Di*prod_campo["INDEX"].iloc[:t])**-1/n
+        return qinst
+
+
+import matplotlib.pyplot as plt
+valorqinst=instantaneos (0.02,1,20)
+#print(valorqinst)
+qinst_df=pd.DataFrame(valorqinst)
+qinst_df['meses'] = qinst_df.index
+#print(qinst_df)
+eje_x=qinst_df['meses']
+eje_Y=qinst_df['INDEX']
+plt.scatter(eje_x,eje_Y)
+#plt.yscale('log')
+plt.ylabel('Q [BN/D]')
+plt.xlabel('TIEMPO [MESES]')
+plt.title('GRAFICO LOG(Q) VS T')
+plt.show()
+
+q_prom=(-np.diff(valorqinst)*0.5+valorqinst[1:])
+#print(q_prom)
+acumulado = q_prom*30
+#print(acumulado)
+acumulado_df=pd.DataFrame(acumulado)
+#print(acumulado_df)
+acumulado_df['MESES'] = acumulado_df.index
+#print(acumulado_df)
+
+eje_x=acumulado_df['MESES']
+eje_Y=acumulado_df['INDEX']
+plt.scatter(eje_x,eje_Y)
+#plt.yscale('log')
+plt.ylabel('NP [BN]')
+plt.xlabel('TIEMPO [MESES]')
+plt.title('GRAFICO LOG(NP) VS T')
+plt.show()
